@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net8.0-windows</TargetFramework>
+		<UseWPF>true</UseWPF>
+		<AssemblyName>RgvSimulatorGui</AssemblyName>
+		<RootNamespace>Kean.Tools.RgvSimulatorGui</RootNamespace>
+		<ApplicationIcon>Assets\RgvSimulator.ico</ApplicationIcon>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <!-- 界面：WPF-UI（Fluent 风格，离线包见 nuget.config） -->
+	  <PackageReference Include="WPF-UI" Version="4.3.0" />
+	  <!-- 输送线模拟：内嵌 OPC UA 服务器（与 RCS 用的是同一套包） -->
+	  <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua" Version="1.5.374.126" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Resource Include="Assets\RgvSimulator.ico" />
+	</ItemGroup>
+
+</Project>

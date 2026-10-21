@@ -1,0 +1,1081 @@
+<ui:FluentWindow x:Class="Kean.Tools.RgvSimulatorGui.MainWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:local="clr-namespace:Kean.Tools.RgvSimulatorGui"
+                 Title="RGV 设备模拟器" Height="860" Width="1360" MinHeight="660" MinWidth="1140"
+                 Icon="pack://application:,,,/Assets/RgvSimulator.ico"
+                 FontFamily="Microsoft YaHei UI" FontSize="13"
+                 WindowStartupLocation="CenterScreen" TextOptions.TextFormattingMode="Display"
+                 ExtendsContentIntoTitleBar="True" WindowBackdropType="Mica" WindowCornerPreference="Round"
+                 UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 整窗淡淡叠一层配色方案的主色（颜色在后台按方案和亮/暗设置），让整体带上主题色调 -->
+        <Border x:Name="TintLayer" Grid.RowSpan="2" IsHitTestVisible="False"/>
+
+        <!-- 标题栏 -->
+        <ui:TitleBar Grid.Row="0" Title="RGV 设备模拟器 · 四向车 Modbus / 四向车 OPC / 提升机 / 输送线">
+            <ui:TitleBar.Icon>
+                <ui:ImageIcon Source="pack://application:,,,/Assets/RgvSimulator.ico"/>
+            </ui:TitleBar.Icon>
+            <ui:TitleBar.TrailingContent>
+                <ui:Button x:Name="ThemeBtn" Appearance="Transparent" BorderThickness="0" Padding="8,4" Margin="0,0,4,0"
+                           VerticalAlignment="Center" Click="OnThemeClick" ToolTip="切换亮色 / 暗色主题"
+                           Icon="{ui:SymbolIcon WeatherMoon24}"/>
+            </ui:TitleBar.TrailingContent>
+        </ui:TitleBar>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="216"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- ===== 左侧导航 ===== -->
+            <DockPanel Grid.Column="0" Margin="10,4,6,14">
+                <!-- 全局：绑定 IP（四向车、提升机共用） -->
+                <Border DockPanel.Dock="Bottom" Style="{StaticResource Card}" Padding="12,10">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <ui:SymbolIcon Symbol="Router24" FontSize="16" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            <TextBlock Text="Modbus 绑定 IP" Margin="6,0,0,0" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                        <ComboBox x:Name="IpBox" IsEditable="True" Text="0.0.0.0"
+                                  ToolTip="四向车、提升机从站绑定的本机地址：0.0.0.0 = 监听所有网卡（127.0.0.1 和本机网卡地址都能连）；填 127.0.0.1 则只允许本机连。改了之后对下次启动生效"/>
+                        <TextBlock Margin="2,6,0,0" FontSize="11" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                   Text="0.0.0.0 监听全部网卡；对下次启动生效"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 外观：配色方案（亮/暗切换在标题栏右上角） -->
+                <Border DockPanel.Dock="Bottom" Style="{StaticResource Card}" Padding="12,10,6,4" Margin="0,0,0,10">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,6,8">
+                            <TextBlock x:Name="SchemeNameText" DockPanel.Dock="Right" FontSize="11" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Color24" FontSize="16" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                <TextBlock Text="配色方案" Margin="6,0,0,0" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            </StackPanel>
+                        </DockPanel>
+                        <WrapPanel x:Name="SchemePanel"/>
+                    </StackPanel>
+                </Border>
+
+                <StackPanel DockPanel.Dock="Top">
+                    <RadioButton x:Name="NavCar" Style="{StaticResource NavItem}" Tag="car" IsChecked="True" Checked="OnNavChecked">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="VehicleCar24" FontSize="20"/>
+                            <StackPanel Margin="12,0,0,0">
+                                <TextBlock Text="四向车 Modbus" FontSize="14" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="CarNavStatus" Text="未启动" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="NavHffl" Style="{StaticResource NavItem}" Tag="hffl" Checked="OnNavChecked"
+                                 ToolTip="OPC UA 订阅协议的四向车（世仓 DB552 / DB553 报文），和 Modbus 四向车互不影响">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="VehicleCarProfileLtr24" FontSize="20"/>
+                            <StackPanel Margin="12,0,0,0">
+                                <TextBlock Text="四向车 OPC" FontSize="14" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="HfflNavStatus" Text="未启动" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="NavHoist" Style="{StaticResource NavItem}" Tag="hoist" Checked="OnNavChecked">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="ArrowBidirectionalUpDown24" FontSize="20"/>
+                            <StackPanel Margin="12,0,0,0">
+                                <TextBlock Text="提升机" FontSize="14" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="HoistNavStatus" Text="未启动" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="NavConveyor" Style="{StaticResource NavItem}" Tag="conveyor" Checked="OnNavChecked">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="ArrowsBidirectional24" FontSize="20"/>
+                            <StackPanel Margin="12,0,0,0">
+                                <TextBlock Text="输送线" FontSize="14" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="ConveyorNavStatus" Text="未启动" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </RadioButton>
+                </StackPanel>
+            </DockPanel>
+
+            <!-- ===== 右侧：页面 + 日志 ===== -->
+            <Grid Grid.Column="1" Margin="6,4,16,14">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" MinHeight="300"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="190" MinHeight="90"/>
+                </Grid.RowDefinitions>
+
+                <!-- ================= 四向车 ================= -->
+                <Grid x:Name="CarPage" Grid.Row="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" Margin="2,0,0,12">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:Button x:Name="StartBtn" Content="启动" Appearance="Primary" Icon="{ui:SymbolIcon Play24}" Margin="0,0,8,0"
+                                       Click="OnStartClick" ToolTip="按参数建 N 台车；已有车时会先全部停掉再重建"/>
+                            <ui:Button x:Name="StopBtn" Content="停止" Icon="{ui:SymbolIcon Stop24}" Margin="0,0,8,0" IsEnabled="False"
+                                       Click="OnStopClick" ToolTip="停掉全部车并释放端口"/>
+                            <ui:Button x:Name="AddCarBtn" Content="增加一台" Icon="{ui:SymbolIcon Add24}" Margin="0,0,8,0"
+                                       Click="OnAddCarClick" ToolTip="按端口顺延新起一台车，不动已在跑的车"/>
+                            <ui:Button x:Name="RemoveCarBtn" Content="移除选中" Icon="{ui:SymbolIcon Delete24}" IsEnabled="False"
+                                       Click="OnRemoveCarClick" ToolTip="停掉并移除选中的那台车，端口立即释放"/>
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="四向车 Modbus" Style="{StaticResource PageTitle}"/>
+                            <TextBlock Style="{StaticResource PageSubtitle}"
+                                       Text="Modbus TCP 从站 · 协议 V1.1 · 下发区 0–16，反馈区 200–207 · 车号从 1001 起，端口 = 起始端口 + (车号 − 1001)"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- 启动参数 -->
+                    <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,12">
+                        <WrapPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="起始端口" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="PortBox" Width="96" Text="504" ClearButtonEnabled="False"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="车数" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="CountBox" Width="72" Text="6" ClearButtonEnabled="False" TextChanged="OnCountChanged"
+                                            ToolTip="1–13 台；改大时自动补齐初始码值"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="站号" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="UnitBox" Width="72" Text="1" ClearButtonEnabled="False"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="初始码值（逗号分隔）" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="LocationsBox" Width="200" Text="8267,8255,8355,8400,8346,8828" ClearButtonEnabled="False"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="每格 ms" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="StepBox" Width="88" Text="1000" ClearButtonEnabled="False"
+                                            LostFocus="OnDurationCommit" KeyDown="OnDurationKeyDown"
+                                            ToolTip="行驶时每走一格的耗时（10–60000）；回车或离开输入框即对在跑的车生效"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="work 持续 ms" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="WorkDurBox" Width="96" Text="1500" ClearButtonEnabled="False"
+                                            LostFocus="OnDurationCommit" KeyDown="OnDurationKeyDown"
+                                            ToolTip="顶升 / 充电等非行驶任务 work=1 的持续时间（0–60000）；回车或离开输入框即生效"/>
+                            </StackPanel>
+                        </WrapPanel>
+                    </Border>
+
+                    <!-- 车辆状态表 -->
+                    <Border Grid.Row="2" Style="{StaticResource Card}" Padding="4,10,4,4" Margin="0,0,0,12">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top" Margin="12,0,12,6">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Width="12" Height="12" CornerRadius="2" Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+                                            BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1"/>
+                                    <TextBlock Text="可直接双击修改" Margin="6,0,0,0" FontSize="12" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                </StackPanel>
+                                <TextBlock Text="车辆状态" Style="{StaticResource Caption}" Margin="0"/>
+                            </DockPanel>
+                            <Grid>
+                                <DataGrid x:Name="CarGrid" Style="{StaticResource DeviceGrid}">
+                                    <DataGrid.Columns>
+                                        <!-- 车号：有告警时前面挂红色告警图标（不用 RowStyle 整行着色：BasedOn 会锁死在启动时的主题上） -->
+                                        <DataGridTemplateColumn Header="车号" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
+                                                        <ui:SymbolIcon Symbol="Warning24" FontSize="14" Margin="0,0,4,0"
+                                                                       Foreground="{DynamicResource SystemFillColorCriticalBrush}">
+                                                            <ui:SymbolIcon.Style>
+                                                                <Style TargetType="ui:SymbolIcon">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding HasFault}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </ui:SymbolIcon.Style>
+                                                        </ui:SymbolIcon>
+                                                        <TextBlock Text="{Binding Device}" FontWeight="SemiBold"/>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="连接" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border>
+                                                        <Border.Style>
+                                                            <Style TargetType="Border" BasedOn="{StaticResource Pill}">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                                        <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <TextBlock Text="{Binding ConnectionText}" FontSize="12">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}"/>
+                                                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="IP" Width="Auto" Binding="{Binding Ip}" ElementStyle="{StaticResource CellEdit}" EditingElementStyle="{StaticResource CellEditBox}"/>
+                                        <DataGridTextColumn Header="端口" Width="Auto" Binding="{Binding Port}" ElementStyle="{StaticResource CellEditNum}" EditingElementStyle="{StaticResource CellEditBoxNum}"/>
+                                        <DataGridTextColumn Header="码值" Width="Auto" Binding="{Binding Location}" ElementStyle="{StaticResource CellEditNum}" EditingElementStyle="{StaticResource CellEditBoxNum}"/>
+                                        <DataGridTemplateColumn Header="货位" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding CellCode}" VerticalAlignment="Center" Padding="8,0" FontFamily="Consolas">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Work}" Value="True">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
+                                                                        <Setter Property="FontWeight" Value="Bold"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="work" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Style="{StaticResource CellCheck}" IsChecked="{Binding Work, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="中间位" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Style="{StaticResource CellCheck}" IsChecked="{Binding Middle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="顶升位" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Style="{StaticResource CellCheck}" IsChecked="{Binding Lift, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="换向位" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Style="{StaticResource CellCheck}" IsChecked="{Binding Turn, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="托盘" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Style="{StaticResource CellCheck}" IsChecked="{Binding Pallet, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="电量" Width="Auto" Binding="{Binding Battery}" ElementStyle="{StaticResource CellEditNum}" EditingElementStyle="{StaticResource CellEditBoxNum}"/>
+                                        <DataGridTemplateColumn Header="充电开关" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Style="{StaticResource CellCheck}" IsChecked="{Binding ChargeOn, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="充电正常" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Style="{StaticResource CellCheck}" IsChecked="{Binding ChargeOk, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="告警类" Width="Auto" Binding="{Binding WarnType}" ElementStyle="{StaticResource CellWarnNum}" EditingElementStyle="{StaticResource CellEditBoxNum}"/>
+                                        <DataGridTextColumn Header="告警码" Width="Auto" Binding="{Binding WarnCode}" ElementStyle="{StaticResource CellWarnNum}" EditingElementStyle="{StaticResource CellEditBoxNum}"/>
+                                        <DataGridTextColumn Header="写入" Width="Auto" IsReadOnly="True" Binding="{Binding Writes}" ElementStyle="{StaticResource CellReadNum}"/>
+                                        <DataGridTextColumn Header="最近写入" Width="Auto" MinWidth="120" IsReadOnly="True" Binding="{Binding LastWrite}" ElementStyle="{StaticResource CellMono}"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <!-- 空表提示 -->
+                                <StackPanel x:Name="CarEmptyHint" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,36,0,0" IsHitTestVisible="False">
+                                    <ui:SymbolIcon Symbol="VehicleCar24" FontSize="36" HorizontalAlignment="Center" Foreground="{DynamicResource TextFillColorDisabledBrush}"/>
+                                    <TextBlock Text="还没有车在跑，点右上角「启动」" Margin="0,8,0,0" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                </StackPanel>
+                            </Grid>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- 选中车操作 -->
+                    <Border x:Name="OpsPanel" Grid.Row="3" Style="{StaticResource Card}" IsEnabled="False"
+                            DataContext="{Binding SelectedItem, ElementName=CarGrid}">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                <ui:SymbolIcon Symbol="VehicleCar24" FontSize="16" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
+                                <TextBlock x:Name="OpsTitle" Text="选中车操作（先在上表选中一行）" Margin="8,0,0,0" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                            </StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="位置 / 模拟" Style="{StaticResource GroupLabel}" Margin="0,0,0,6"/>
+                                <WrapPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,4">
+                                    <ui:TextBox x:Name="PositionBox" Width="110" Margin="0,0,6,6" PlaceholderText="码值" ClearButtonEnabled="False"
+                                                KeyDown="OnPositionKeyDown"/>
+                                    <ui:Button Content="设为当前码值" Icon="{ui:SymbolIcon Location24}" Margin="0,0,24,6" Click="OnSetPositionClick"/>
+                                    <ui:ToggleSwitch Content="空顶" Margin="0,0,20,6" IsChecked="{Binding EmptyLift, Mode=TwoWay}"
+                                                     ToolTip="顶升时不置托盘检测位（cargoStatus bit6），模拟顶起但没托到货"/>
+                                    <ui:ToggleSwitch Content="充电未打通" Margin="0,0,20,6" IsChecked="{Binding ChargeNotConnected, Mode=TwoWay}"
+                                                     ToolTip="充电开时只置 status bit4（开关），不置 bit5（充电正常）"/>
+                                    <ui:ToggleSwitch Content="分包响应" Margin="0,0,0,6" IsChecked="{Binding Split, Mode=TwoWay}"
+                                                     ToolTip="响应逐字节发送，模拟 TCP 分包"/>
+                                </WrapPanel>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="任务 / 告警" Style="{StaticResource GroupLabel}" Margin="0,0,0,6"/>
+                                <WrapPanel Grid.Row="1" Grid.Column="1">
+                                    <ui:Button Content="work = 1" Tag="work1" Style="{StaticResource OpButton}" Click="OnCarActionClick"/>
+                                    <ui:Button Content="work = 0" Tag="work0" Style="{StaticResource OpButton}" Click="OnCarActionClick" Margin="0,0,24,6"/>
+                                    <ui:Button Content="置故障" Tag="fault" Style="{StaticResource OpButton}" Appearance="Danger" Icon="{ui:SymbolIcon Warning24}"
+                                               Click="OnCarActionClick" ToolTip="告警类型 1、告警码 101"/>
+                                    <ui:Button Content="清故障" Tag="clear" Style="{StaticResource OpButton}" Icon="{ui:SymbolIcon Checkmark24}" Click="OnCarActionClick"/>
+                                </WrapPanel>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="通讯异常" Style="{StaticResource GroupLabel}" Margin="0,0,0,6"/>
+                                <WrapPanel Grid.Row="2" Grid.Column="1">
+                                    <ui:Button Content="掉线" Tag="drop" Style="{StaticResource OpButton}" Icon="{ui:SymbolIcon PlugDisconnected24}"
+                                               Click="OnCarActionClick" ToolTip="断开当前全部连接（保持监听，RCS 可重连）"/>
+                                    <ui:Button Content="静默" Tag="mute" Style="{StaticResource OpButton}" Icon="{ui:SymbolIcon SpeakerMute24}"
+                                               Click="OnCarActionClick" ToolTip="收到请求一律不应答，模拟超时"/>
+                                    <ui:Button Content="恢复应答" Tag="resume" Style="{StaticResource OpButton}" Icon="{ui:SymbolIcon ArrowReset24}"
+                                               Click="OnCarActionClick" Margin="0,0,24,6"/>
+                                    <ui:Button Content="丢 1 个响应" Tag="dropresp" Style="{StaticResource OpButton}" Click="OnCarActionClick" ToolTip="下一个请求不应答，模拟丢包"/>
+                                    <ui:Button Content="延迟 1s 响应" Tag="delayresp" Style="{StaticResource OpButton}" Icon="{ui:SymbolIcon Timer24}"
+                                               Click="OnCarActionClick" ToolTip="下一个响应延迟 1000ms 再发"/>
+                                </WrapPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- ================= 四向车 OPC================= -->
+                <Grid x:Name="HfflPage" Grid.Row="0" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" Margin="2,0,0,12">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:Button x:Name="HfflStartBtn" Content="启动" Appearance="Primary" Icon="{ui:SymbolIcon Play24}" Margin="0,0,8,0"
+                                       Click="OnHfflStartClick" AutomationProperties.Name="启动 OPC 四向车"
+                                       ToolTip="按参数建 N 台车并开 OPC 服务器；已在跑时会先全部停掉再重建"/>
+                            <ui:Button x:Name="HfflStopBtn" Content="停止" Icon="{ui:SymbolIcon Stop24}" Margin="0,0,8,0" IsEnabled="False"
+                                       Click="OnHfflStopClick" AutomationProperties.Name="停止 OPC 四向车"
+                                       ToolTip="停 OPC 服务器，RCS 那边会报意外断开并自动重连"/>
+                            <ui:Button Content="复制 appsettings" Icon="{ui:SymbolIcon Copy24}" Click="OnHfflCopySettingsClick"
+                                       ToolTip="按当前参数生成 Connections:OpcUa 下各车的连接条目（&quot;S7 connection_N&quot;: &quot;opc.tcp://127.0.0.1:端口&quot;），复制到剪贴板"/>
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="四向车 OPC" Style="{StaticResource PageTitle}"/>
+                            <TextBlock Style="{StaticResource PageSubtitle}"
+                                       Text="内嵌 OPC UA 服务器 · 节点 ns=3;s={连接名}.{标签} · 反馈 DB553 84 字节（PLC→WCS，RCS 订阅）· 命令 DB552 110 字节（WCS→PLC）· 位置 = 层-列-排"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- 启动参数 -->
+                    <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,12">
+                        <WrapPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="OPC 端口" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="HfflPortBox" Width="88" Text="49321" ClearButtonEnabled="False"
+                                            ToolTip="不能和输送线的 OPC 端口相同；RCS 的 appsettings 里各车连接指到 opc.tcp://127.0.0.1:这个端口"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="起始车号" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="HfflStartIdBox" Width="80" Text="1001" ClearButtonEnabled="False"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="车数" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="HfflCountBox" Width="64" Text="13" ClearButtonEnabled="False" ToolTip="1–50 台"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="连接名前缀" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="HfflServerPrefixBox" Width="128" Text="S7 connection_" ClearButtonEnabled="False"
+                                            ToolTip="设备参数里的 server = 前缀 + 序号（1001 → S7 connection_1）"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="起始序号" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="HfflServerIndexBox" Width="64" Text="1" ClearButtonEnabled="False"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="读标签（反馈）" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="HfflReadTagBox" Width="120" Text="DB553.0,b,84" ClearButtonEnabled="False"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="写标签（命令）" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="HfflWriteTagBox" Width="120" Text="DB552.0,b,110" ClearButtonEnabled="False"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="初始位置（层-列-排，逗号分隔）" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="HfflPositionsBox" Width="250" ClearButtonEnabled="False"
+                                            Text="01-03-13,01-23-13,01-30-16,01-19-13,01-31-16,01-25-13,01-20-13,01-16-13,01-15-13,01-21-13,01-17-13,01-22-13,01-18-13"
+                                            ToolTip="按车号顺序；缺省是 RCS 车表 rms_vehicles 里 1001-1013 的位置。位置必须是货位表里存在的 cell_code_rms，否则 RCS 会提示当前车位置不存在"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="每格 ms" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="HfflStepBox" Width="80" Text="1000" ClearButtonEnabled="False"
+                                            LostFocus="OnHfflDurationCommit" KeyDown="OnHfflDurationKeyDown"
+                                            ToolTip="直行时每走一格的耗时（50–60000）；回车或离开输入框即生效"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="动作 ms" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="HfflWorkBox" Width="80" Text="1500" ClearButtonEnabled="False"
+                                            LostFocus="OnHfflDurationCommit" KeyDown="OnHfflDurationKeyDown"
+                                            ToolTip="换向 / 取货 / 放货 / 充电 / 取消充电的耗时（0–60000）；回车或离开输入框即生效"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}" Margin="8,0,0,4">
+                                <TextBlock Text="心跳" Style="{StaticResource FieldCaption}"/>
+                                <ui:ToggleSwitch x:Name="HfflHeartToggle" IsChecked="True" Margin="0,4,0,0"
+                                                 ToolTip="反馈帧 0-1 字节每秒 +1（RCS 只做过滤不做在线判断，关掉可以减少订阅推送）"/>
+                            </StackPanel>
+                        </WrapPanel>
+                    </Border>
+
+                    <!-- 车辆状态表 -->
+                    <Border Grid.Row="2" Style="{StaticResource Card}" Padding="4,10,4,4" Margin="0,0,0,12">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top" Margin="12,0,12,6">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Width="12" Height="12" CornerRadius="2" Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+                                            BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1"/>
+                                    <TextBlock Text="可直接双击修改" Margin="6,0,0,0" FontSize="12" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                </StackPanel>
+                                <TextBlock x:Name="HfflEndpointText" Text="车辆状态" Style="{StaticResource Caption}" Margin="0"/>
+                            </DockPanel>
+                            <Grid>
+                                <DataGrid x:Name="HfflGrid" Style="{StaticResource DeviceGrid}">
+                                    <DataGrid.Columns>
+                                        <DataGridTemplateColumn Header="车号" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
+                                                        <ui:SymbolIcon Symbol="Warning24" FontSize="14" Margin="0,0,4,0"
+                                                                       Foreground="{DynamicResource SystemFillColorCriticalBrush}">
+                                                            <ui:SymbolIcon.Style>
+                                                                <Style TargetType="ui:SymbolIcon">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding HasFault}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </ui:SymbolIcon.Style>
+                                                        </ui:SymbolIcon>
+                                                        <TextBlock Text="{Binding Device}" FontWeight="SemiBold"/>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="订阅" Width="Auto">
+                                            <DataGridTemplateColumn.HeaderStyle>
+                                                <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+                                                    <Setter Property="ToolTip" Value="这台车的反馈节点上挂着几个数据订阅：RCS 连上并订阅成功后 ≥1"/>
+                                                </Style>
+                                            </DataGridTemplateColumn.HeaderStyle>
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border>
+                                                        <Border.Style>
+                                                            <Style TargetType="Border" BasedOn="{StaticResource Pill}">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                                        <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <TextBlock Text="{Binding ConnectionText}" FontSize="12">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}"/>
+                                                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="位置" Width="Auto" Binding="{Binding Position}" ElementStyle="{StaticResource CellEdit}" EditingElementStyle="{StaticResource CellEditBox}"/>
+                                        <DataGridTemplateColumn Header="状态" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border>
+                                                        <Border.Style>
+                                                            <Style TargetType="Border" BasedOn="{StaticResource Pill}">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding StateKind}" Value="run">
+                                                                        <Setter Property="Background" Value="{DynamicResource SystemFillColorAttentionBackgroundBrush}"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding StateKind}" Value="wait">
+                                                                        <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding StateKind}" Value="done">
+                                                                        <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding StateKind}" Value="fault">
+                                                                        <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <TextBlock Text="{Binding StateText}" FontSize="12" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="命令号" Width="Auto" IsReadOnly="True" Binding="{Binding CommandId}" ElementStyle="{StaticResource CellReadNum}"/>
+                                        <DataGridTextColumn Header="命令" Width="Auto" IsReadOnly="True" Binding="{Binding CommandText}" ElementStyle="{StaticResource CellRead}"/>
+                                        <DataGridTextColumn Header="命令状态" Width="Auto" IsReadOnly="True" Binding="{Binding CommandState}" ElementStyle="{StaticResource CellReadNum}"/>
+                                        <DataGridTextColumn Header="任务号" Width="Auto" IsReadOnly="True" Binding="{Binding TaskId}" ElementStyle="{StaticResource CellReadNum}"/>
+                                        <DataGridTextColumn Header="缓存" Width="Auto" IsReadOnly="True" Binding="{Binding BufferedText}" ElementStyle="{StaticResource CellMono}"/>
+                                        <DataGridTemplateColumn Header="X向" Width="Auto">
+                                            <DataGridTemplateColumn.HeaderStyle>
+                                                <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+                                                    <Setter Property="ToolTip" Value="byte32 bit7：车当前朝 X 向。RCS 看它和任务方向是否一致，不一致就发「先换向再直行」"/>
+                                                </Style>
+                                            </DataGridTemplateColumn.HeaderStyle>
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Style="{StaticResource CellCheck}" IsChecked="{Binding TowardX, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="托盘" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Style="{StaticResource CellCheck}" IsChecked="{Binding Pallet, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="电量%" Width="Auto" Binding="{Binding Battery}" ElementStyle="{StaticResource CellEditNum}" EditingElementStyle="{StaticResource CellEditBoxNum}"/>
+                                        <DataGridTemplateColumn Header="充电" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Style="{StaticResource CellCheck}" IsChecked="{Binding Charging, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              ToolTip="充电中每 2 秒电量 +1；RCS 看到电量 ≥95 且在充电会自动下「取消充电」"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="自动" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Style="{StaticResource CellCheck}" IsChecked="{Binding Auto, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              ToolTip="byte32 bit1 控制模式：勾 = 自动；去掉 = 手动（RCS 的 hand_status=0，不再发命令）"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="故障码1" Width="Auto" Binding="{Binding FaultCode1}" ElementStyle="{StaticResource CellWarnNum}" EditingElementStyle="{StaticResource CellEditBoxNum}"/>
+                                        <DataGridTextColumn Header="故障码2" Width="Auto" Binding="{Binding FaultCode2}" ElementStyle="{StaticResource CellWarnNum}" EditingElementStyle="{StaticResource CellEditBoxNum}"/>
+                                        <DataGridTextColumn Header="写入" Width="Auto" IsReadOnly="True" Binding="{Binding Writes}" ElementStyle="{StaticResource CellReadNum}"/>
+                                        <DataGridTextColumn Header="最近下发" Width="Auto" MinWidth="150" IsReadOnly="True" Binding="{Binding LastWrite}" ElementStyle="{StaticResource CellMono}"/>
+                                        <DataGridTextColumn Header="连接名" Width="Auto" IsReadOnly="True" Binding="{Binding Server}" ElementStyle="{StaticResource CellRead}"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <StackPanel x:Name="HfflEmptyHint" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,36,0,0" IsHitTestVisible="False">
+                                    <ui:SymbolIcon Symbol="VehicleCarProfileLtr24" FontSize="36" HorizontalAlignment="Center" Foreground="{DynamicResource TextFillColorDisabledBrush}"/>
+                                    <TextBlock Text="还没有车在跑，点右上角「启动」；再把 RCS 的 appsettings 里各车连接指到本机端口" Margin="0,8,0,0" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                </StackPanel>
+                            </Grid>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- 选中车操作 -->
+                    <Border x:Name="HfflOpsPanel" Grid.Row="3" Style="{StaticResource Card}" IsEnabled="False"
+                            DataContext="{Binding SelectedItem, ElementName=HfflGrid}">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                <ui:SymbolIcon Symbol="VehicleCarProfileLtr24" FontSize="16" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
+                                <TextBlock x:Name="HfflOpsTitle" Text="选中车操作（先在上表选中一行）" Margin="8,0,0,0" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                            </StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="位置 / 模拟" Style="{StaticResource GroupLabel}" Margin="0,0,0,6"/>
+                                <WrapPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,4">
+                                    <ui:TextBox x:Name="HfflPositionBox" Width="110" Margin="0,0,6,6" PlaceholderText="层-列-排" ClearButtonEnabled="False"
+                                                KeyDown="OnHfflPositionKeyDown"/>
+                                    <ui:Button Content="设为当前位置" Icon="{ui:SymbolIcon Location24}" Margin="0,0,24,6" Click="OnHfflSetPositionClick"/>
+                                    <ui:ToggleSwitch Content="空取" Margin="0,0,20,6" IsChecked="{Binding EmptyPick, Mode=TwoWay}"
+                                                     ToolTip="取货命令完成时不置托盘位：RCS 的取货完成校验（托盘=1）过不去"/>
+                                    <ui:ToggleSwitch Content="充电未打通" Margin="0,0,20,6" IsChecked="{Binding ChargeNotConnected, Mode=TwoWay}"
+                                                     ToolTip="充电命令完成时不置充电位：RCS 的充电完成校验（充电=1）过不去"/>
+                                    <ui:ToggleSwitch Content="起点校验" Margin="0,0,20,6" IsChecked="{Binding StrictStart, Mode=TwoWay}"
+                                                     ToolTip="命令起点和车当前位置（执行中收到时比对当前命令终点）不符就回校验失败 5；默认关：照当前位置出发"/>
+                                    <ui:ToggleSwitch Content="回调中" Margin="0,0,0,6" IsChecked="{Binding CallBack, Mode=TwoWay}"
+                                                     ToolTip="byte33 bit2：RCS 看到回调中不发命令"/>
+                                </WrapPanel>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="手工命令" Style="{StaticResource GroupLabel}" Margin="0,0,0,6"/>
+                                <WrapPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,4">
+                                    <ComboBox x:Name="HfflCmdTypeBox" Width="132" Margin="0,0,6,6" SelectedIndex="0"
+                                              ToolTip="和 RCS 写 DB552 一样走一遍：直行 / 换向直行要填终点，其余原地执行">
+                                        <ComboBoxItem Tag="1" Content="1 直行"/>
+                                        <ComboBoxItem Tag="2" Content="2 先换向再直行"/>
+                                        <ComboBoxItem Tag="3" Content="3 取货"/>
+                                        <ComboBoxItem Tag="4" Content="4 放货"/>
+                                        <ComboBoxItem Tag="5" Content="5 充电"/>
+                                        <ComboBoxItem Tag="6" Content="6 取消充电"/>
+                                    </ComboBox>
+                                    <ui:TextBox x:Name="HfflCmdTargetBox" Width="110" Margin="0,0,6,6" PlaceholderText="终点 层-列-排" ClearButtonEnabled="False"/>
+                                    <ui:Button Content="下发" Icon="{ui:SymbolIcon Send24}" Margin="0,0,24,6" Click="OnHfflSendClick"
+                                               ToolTip="拼一帧 110 字节命令写进写区并执行（序列号从 60001 起）"/>
+                                    <ui:Button Content="下条校验失败" Tag="checkfail" Style="{StaticResource OpButton}" Click="OnHfflActionClick"
+                                               ToolTip="下一条收到的命令直接回状态 5（执行中收到则回缓存状态 5）"/>
+                                    <ui:Button Content="下条执行失败" Tag="execfail" Style="{StaticResource OpButton}" Click="OnHfflActionClick"
+                                               ToolTip="下一条命令执行到最后回状态 6（不回 4）"/>
+                                    <ui:Button Content="中止当前" Tag="abort" Style="{StaticResource OpButton}" Icon="{ui:SymbolIcon Stop24}" Click="OnHfflActionClick"
+                                               ToolTip="正在执行的命令原地停下，回状态 6；缓存命令作废"/>
+                                </WrapPanel>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="故障 / 急停" Style="{StaticResource GroupLabel}" Margin="0,0,0,6"/>
+                                <WrapPanel Grid.Row="2" Grid.Column="1" Margin="0,0,0,4">
+                                    <ui:Button Content="置故障" Tag="fault" Style="{StaticResource OpButton}" Appearance="Danger" Icon="{ui:SymbolIcon Warning24}"
+                                               Click="OnHfflActionClick" ToolTip="工作状态位清 0（RCS 判为故障 30）+ 故障码1 bit0；执行中的命令原地暂停"/>
+                                    <ui:Button Content="清故障" Tag="clear" Style="{StaticResource OpButton}" Icon="{ui:SymbolIcon Checkmark24}" Margin="0,0,24,6"
+                                               Click="OnHfflActionClick" ToolTip="工作状态位置 1、故障码清零；暂停的命令接着执行"/>
+                                    <ui:ToggleSwitch Content="急停" Margin="0,0,0,6" IsChecked="{Binding EStop, Mode=TwoWay}"
+                                                     ToolTip="byte32 bit3：执行中的命令原地暂停，关掉后接着走"/>
+                                </WrapPanel>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="报文" Style="{StaticResource GroupLabel}" Margin="0,0,0,6"/>
+                                <DockPanel Grid.Row="3" Grid.Column="1">
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="6,0,0,0">
+                                        <ui:Button Content="看反馈帧" Tag="showfeedback" Style="{StaticResource OpButton}" Click="OnHfflActionClick"
+                                                   ToolTip="把当前反馈帧（DB553，十进制字节）放到左边框里"/>
+                                        <ui:Button Content="看最近命令" Tag="showcommand" Style="{StaticResource OpButton}" Click="OnHfflActionClick"
+                                                   ToolTip="把最近一帧命令（DB552）放到左边框里"/>
+                                        <ui:Button Content="写入反馈帧" Tag="loadfeedback" Style="{StaticResource OpButton}" Icon="{ui:SymbolIcon ArrowUpload24}" Margin="0,0,0,6"
+                                                   Click="OnHfflActionClick" ToolTip="按左边框里的字节设定整帧反馈（各字段跟着变）并推给 RCS；正在执行的命令作废"/>
+                                    </StackPanel>
+                                    <ui:TextBox x:Name="HfflFrameBox" Margin="0,0,0,6" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" MaxHeight="64"
+                                                VerticalScrollBarVisibility="Auto" ClearButtonEnabled="False"
+                                                PlaceholderText="点右边「看反馈帧」/「看最近命令」，或直接粘一帧逗号分隔的十进制字节"/>
+                                </DockPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- ================= 提升机 ================= -->
+                <Grid x:Name="HoistPage" Grid.Row="0" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" Margin="2,0,0,12">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:Button x:Name="HoistStartBtn" Content="启动" Appearance="Primary" Icon="{ui:SymbolIcon Play24}" Margin="0,0,8,0"
+                                       Click="OnHoistStartClick" AutomationProperties.Name="启动提升机"/>
+                            <ui:Button x:Name="HoistStopBtn" Content="停止" Icon="{ui:SymbolIcon Stop24}" IsEnabled="False"
+                                       Click="OnHoistStopClick" AutomationProperties.Name="停止提升机"/>
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="提升机" Style="{StaticResource PageTitle}"/>
+                            <TextBlock Style="{StaticResource PageSubtitle}"
+                                       Text="Modbus TCP 从站 · 协议 V2.3 · WCS 写区 46088 起，PLC 反馈区 46138 起 · 设备号从 13001 起"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,12">
+                        <WrapPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="起始端口" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="HoistPortBox" Width="96" Text="502" ClearButtonEnabled="False"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="台数" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="HoistCountBox" Width="72" Text="2" ClearButtonEnabled="False" ToolTip="1–8 台"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="总层数" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="HoistLayerBox" Width="72" Text="3" ClearButtonEnabled="False"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="起始层" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="HoistStartLayerBox" Width="72" Text="1" ClearButtonEnabled="False"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}">
+                                <TextBlock Text="站号" Style="{StaticResource FieldCaption}"/>
+                                <ui:TextBox x:Name="HoistUnitBox" Width="72" Text="1" ClearButtonEnabled="False"/>
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource Field}" Margin="8,0,0,4">
+                                <TextBlock Text="生命计数" Style="{StaticResource FieldCaption}"/>
+                                <ui:ToggleSwitch x:Name="HoistLifeToggle" IsChecked="True" Margin="0,4,0,0"
+                                                 Checked="OnHoistLifeChanged" Unchecked="OnHoistLifeChanged"
+                                                 ToolTip="每 250ms 让 lifeCount 递增；RCS 用它判断提升机是否在线（lifeTimeout 缺省 5 秒），关掉就等于制造掉线"/>
+                            </StackPanel>
+                        </WrapPanel>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource Card}" Padding="4,10,4,4">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top" Margin="12,0,12,6">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                    <ui:Button Content="复位" Tag="reset" Style="{StaticResource OpButton}" Margin="0,0,6,0" Icon="{ui:SymbolIcon ArrowReset24}"
+                                               Click="OnHoistActionClick" ToolTip="清报警并解除暂停（相当于 WCS 写 sysRest=1）"/>
+                                    <ui:Button Content="暂停" Tag="pause" Style="{StaticResource OpButton}" Margin="0,0,6,0" Icon="{ui:SymbolIcon Pause24}"
+                                               Click="OnHoistActionClick" ToolTip="相当于 WCS 写 sysStop=1"/>
+                                    <ui:Button Content="继续" Tag="resume" Style="{StaticResource OpButton}" Margin="0" Icon="{ui:SymbolIcon Play24}"
+                                               Click="OnHoistActionClick" ToolTip="相当于 WCS 写 sysStop=2"/>
+                                </StackPanel>
+                                <TextBlock Text="提升机状态（选中一行后用右侧按钮操作；淡黄底可直接改）" Style="{StaticResource Caption}" Margin="0" VerticalAlignment="Center"/>
+                            </DockPanel>
+                            <Grid>
+                                <DataGrid x:Name="HoistGrid" Style="{StaticResource DeviceGrid}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="设备号" Width="Auto" IsReadOnly="True" Binding="{Binding Device}">
+                                            <DataGridTextColumn.ElementStyle>
+                                                <Style TargetType="TextBlock" BasedOn="{StaticResource CellRead}">
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </Style>
+                                            </DataGridTextColumn.ElementStyle>
+                                        </DataGridTextColumn>
+                                        <DataGridTemplateColumn Header="连接" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border>
+                                                        <Border.Style>
+                                                            <Style TargetType="Border" BasedOn="{StaticResource Pill}">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                                        <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <TextBlock Text="{Binding ConnectionText}" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="端口" Width="Auto" IsReadOnly="True" Binding="{Binding Port}" ElementStyle="{StaticResource CellReadNum}"/>
+                                        <DataGridComboBoxColumn Header="模式" Width="Auto" SelectedValuePath="Value" DisplayMemberPath="Text"
+                                                                SelectedValueBinding="{Binding Model, UpdateSourceTrigger=PropertyChanged}"
+                                                                ItemsSource="{x:Static local:HoistOptions.ModelOptions}"/>
+                                        <DataGridTextColumn Header="就绪" Width="Auto" IsReadOnly="True" Binding="{Binding ReadyText}" ElementStyle="{StaticResource CellRead}"/>
+                                        <DataGridTextColumn Header="系统状态" Width="Auto" IsReadOnly="True" Binding="{Binding SysStatusText}" ElementStyle="{StaticResource CellRead}"/>
+                                        <DataGridTextColumn Header="当前层" Width="Auto" Binding="{Binding Layer}" ElementStyle="{StaticResource CellEditNum}" EditingElementStyle="{StaticResource CellEditBoxNum}"/>
+                                        <DataGridTextColumn Header="层数" Width="Auto" IsReadOnly="True" Binding="{Binding LayerCount}" ElementStyle="{StaticResource CellReadNum}"/>
+                                        <DataGridTextColumn Header="平台 mm" Width="Auto" IsReadOnly="True" Binding="{Binding PlatformPos}" ElementStyle="{StaticResource CellReadNum}"/>
+                                        <DataGridTextColumn Header="链条" Width="Auto" IsReadOnly="True" Binding="{Binding ChainText}" ElementStyle="{StaticResource CellRead}"/>
+                                        <DataGridTextColumn Header="输送线交接" Width="Auto" IsReadOnly="True" Binding="{Binding TransferText}" ElementStyle="{StaticResource CellRead}"/>
+                                        <DataGridComboBoxColumn Header="托盘" Width="Auto" SelectedValuePath="Value" DisplayMemberPath="Text"
+                                                                SelectedValueBinding="{Binding Cargo, UpdateSourceTrigger=PropertyChanged}"
+                                                                ItemsSource="{x:Static local:HoistOptions.PresenceOptions}"/>
+                                        <DataGridComboBoxColumn Header="有车" Width="Auto" SelectedValuePath="Value" DisplayMemberPath="Text"
+                                                                SelectedValueBinding="{Binding Vehicle, UpdateSourceTrigger=PropertyChanged}"
+                                                                ItemsSource="{x:Static local:HoistOptions.PresenceOptions}"/>
+                                        <DataGridTextColumn Header="报警类型" Width="Auto" Binding="{Binding WarnType}" ElementStyle="{StaticResource CellEditNum}" EditingElementStyle="{StaticResource CellEditBoxNum}"/>
+                                        <DataGridTextColumn Header="报警码" Width="Auto" Binding="{Binding WarnCode}" ElementStyle="{StaticResource CellEditNum}" EditingElementStyle="{StaticResource CellEditBoxNum}"/>
+                                        <DataGridTextColumn Header="任务号" Width="Auto" IsReadOnly="True" Binding="{Binding CurrentTaskCode}" ElementStyle="{StaticResource CellReadNum}"/>
+                                        <DataGridTextColumn Header="任务类型" Width="Auto" IsReadOnly="True" Binding="{Binding CurrentTaskType}" ElementStyle="{StaticResource CellReadNum}"/>
+                                        <DataGridTextColumn Header="生命计数" Width="Auto" MinWidth="80" IsReadOnly="True" Binding="{Binding LifeCount}" ElementStyle="{StaticResource CellMono}"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <StackPanel x:Name="HoistEmptyHint" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,36,0,0" IsHitTestVisible="False">
+                                    <ui:SymbolIcon Symbol="ArrowBidirectionalUpDown24" FontSize="36" HorizontalAlignment="Center" Foreground="{DynamicResource TextFillColorDisabledBrush}"/>
+                                    <TextBlock Text="提升机未启动，点右上角「启动」" Margin="0,8,0,0" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                </StackPanel>
+                            </Grid>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+
+                <!-- ================= 输送线 ================= -->
+                <Grid x:Name="ConveyorPage" Grid.Row="0" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" Margin="2,0,0,12">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:Button x:Name="ConveyorStartBtn" Content="启动" Appearance="Primary" Icon="{ui:SymbolIcon Play24}" Margin="0,0,8,0"
+                                       Click="OnConveyorStartClick" AutomationProperties.Name="启动输送线"/>
+                            <ui:Button x:Name="ConveyorStopBtn" Content="停止" Icon="{ui:SymbolIcon Stop24}" IsEnabled="False"
+                                       Click="OnConveyorStopClick" AutomationProperties.Name="停止输送线"/>
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="输送线" Style="{StaticResource PageTitle}"/>
+                            <TextBlock Style="{StaticResource PageSubtitle}"
+                                       Text="内嵌 OPC UA 服务器 · 端点 opc.tcp://127.0.0.1:{OPC 端口} · 节点 ns=3;s={连接名}.{标签} · 值为 byte[10] 报文 · 写用 DB{n}，读用 DB{n+1}"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,12">
+                        <StackPanel>
+                            <WrapPanel>
+                                <StackPanel Style="{StaticResource Field}">
+                                    <TextBlock Text="OPC 端口" Style="{StaticResource FieldCaption}"/>
+                                    <ui:TextBox x:Name="ConveyorPortBox" Width="96" Text="49320" ClearButtonEnabled="False"/>
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource Field}">
+                                    <TextBlock Text="连接名 server" Style="{StaticResource FieldCaption}"/>
+                                    <ui:TextBox x:Name="ConveyorServerBox" Width="168" Text="S7 connection_19" ClearButtonEnabled="False"
+                                                ToolTip="对应 appsettings 的 Connections:OpcUa:{名字}"/>
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource Field}">
+                                    <TextBlock Text="起始设备号" Style="{StaticResource FieldCaption}"/>
+                                    <ui:TextBox x:Name="ConveyorStartIdBox" Width="96" Text="12001" ClearButtonEnabled="False"/>
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource Field}">
+                                    <TextBlock Text="台数" Style="{StaticResource FieldCaption}"/>
+                                    <ui:TextBox x:Name="ConveyorCountBox" Width="72" Text="23" ClearButtonEnabled="False"/>
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource Field}">
+                                    <TextBlock Text="起始字节偏移" Style="{StaticResource FieldCaption}"/>
+                                    <ui:TextBox x:Name="ConveyorOffsetBox" Width="96" Text="0" ClearButtonEnabled="False"/>
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource Field}">
+                                    <TextBlock Text="写 DB" Style="{StaticResource FieldCaption}"/>
+                                    <ui:TextBox x:Name="ConveyorDbBox" Width="72" Text="1" ClearButtonEnabled="False" ToolTip="WCS→PLC 用 DB{n}；读用 DB{n+1}"/>
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource Field}">
+                                    <TextBlock Text="运行耗时 ms" Style="{StaticResource FieldCaption}"/>
+                                    <ui:TextBox x:Name="ConveyorRunBox" Width="96" Text="1500" ClearButtonEnabled="False"
+                                                ToolTip="一节输送线的运行时间（250–60000）。跑完这段时间后货物交到命令里的目标设备"/>
+                                </StackPanel>
+                            </WrapPanel>
+                            <DockPanel Margin="0,6,0,0">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                    <ui:Button x:Name="ConveyorClearImportBtn" Content="改回按参数生成" Icon="{ui:SymbolIcon DismissCircle24}" Margin="0,0,8,0"
+                                               Visibility="Collapsed" Click="OnConveyorClearImportClick"
+                                               ToolTip="丢掉导入的设备表，下次启动按上面的参数生成"/>
+                                    <ui:Button Content="从剪贴板导入" Icon="{ui:SymbolIcon ClipboardPaste24}" Margin="0,0,8,0" Click="OnConveyorPasteClick"
+                                               ToolTip="从 Excel 复制几列（设备号、连接名、读标签、写标签）直接粘贴导入；只填设备号也行，标签按偏移自动生成"/>
+                                    <ui:Button Content="导出 CSV" Icon="{ui:SymbolIcon ArrowExport24}" Click="OnConveyorExportClick" ToolTip="导出当前设备表（可直接给 DB 配置用）"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <ui:SymbolIcon Symbol="Info24" FontSize="16" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                    <TextBlock x:Name="ConveyorSourceText" Margin="6,0,0,0" VerticalAlignment="Center" FontSize="12"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="设备表：按上面的参数生成"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource Card}" Padding="4,10,4,4">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top" Margin="12,0,12,6">
+                                <TextBlock x:Name="ConveyorEndpointText" Text="输送线设备" Style="{StaticResource Caption}" Margin="0" DockPanel.Dock="Top"/>
+                                <WrapPanel HorizontalAlignment="Right" Margin="0,2,0,0">
+                                    <ComboBox x:Name="ClearTargetBox" Width="158" Margin="0,0,6,0" FontSize="12" SelectedIndex="0"
+                                              ToolTip="选要清哪一块，再点右边的「清除」；清的是表里选中的那一节">
+                                        <ComboBoxItem Tag="db1" Content="DB1 写区 WCS→PLC" ToolTip="清掉 WCS 写进来的命令原文和写次数"/>
+                                        <ComboBoxItem Tag="db2" Content="DB2 反馈区 PLC→WCS" ToolTip="清掉状态、指令号、有货、方向、目标"/>
+                                    </ComboBox>
+                                    <ui:Button Content="清除" Tag="clearapply" Style="{StaticResource OpButton}" Margin="0,0,12,0"
+                                               Icon="{ui:SymbolIcon Delete24}" Click="OnConveyorClearClick"/>
+                                    <ui:Button Content="置故障 30" Tag="fault" Style="{StaticResource OpButton}" Margin="0,0,6,0" Appearance="Danger"
+                                               Icon="{ui:SymbolIcon Warning24}" Click="OnConveyorActionClick" ToolTip="状态字节置 30（≥30 即故障）"/>
+                                    <ui:Button Content="清故障" Tag="clear" Style="{StaticResource OpButton}" Margin="0,0,6,0"
+                                               Icon="{ui:SymbolIcon Checkmark24}" Click="OnConveyorActionClick" ToolTip="状态回到空闲"/>
+                                    <ui:Button Content="切换有货" Tag="load" Style="{StaticResource OpButton}" Margin="0"
+                                               Icon="{ui:SymbolIcon Box24}" Click="OnConveyorActionClick" ToolTip="翻转选中这一节的有货位（bit0），立即推给 RCS；也可以直接勾表格里的「有货」"/>
+                                </WrapPanel>
+                            </DockPanel>
+                            <Grid>
+                                <DataGrid x:Name="ConveyorGrid" Style="{StaticResource DeviceGrid}" IsReadOnly="True">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="设备号" Width="Auto" Binding="{Binding DeviceId}">
+                                            <DataGridTextColumn.ElementStyle>
+                                                <Style TargetType="TextBlock" BasedOn="{StaticResource CellRead}">
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </Style>
+                                            </DataGridTextColumn.ElementStyle>
+                                        </DataGridTextColumn>
+                                        <DataGridTemplateColumn Header="状态" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border>
+                                                        <Border.Style>
+                                                            <Style TargetType="Border" BasedOn="{StaticResource Pill}">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding StateKind}" Value="run">
+                                                                        <Setter Property="Background" Value="{DynamicResource SystemFillColorAttentionBackgroundBrush}"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding StateKind}" Value="wait">
+                                                                        <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding StateKind}" Value="done">
+                                                                        <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding StateKind}" Value="fault">
+                                                                        <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <TextBlock Text="{Binding StateText}" FontSize="12" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="指令号" Width="Auto" Binding="{Binding Instruction}" ElementStyle="{StaticResource CellReadNum}"/>
+                                        <!-- 两列字节都可以直接点进去改：DB2=设定反馈帧，DB1=当作收到一条命令 -->
+                                        <DataGridTemplateColumn Header="DB2 实时（PLC→WCS）" Width="Auto" MinWidth="176">
+                                            <DataGridTemplateColumn.HeaderStyle>
+                                                <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+                                                    <Setter Property="ToolTip" Value="模拟器现在放在读区里的整帧内容（逗号分隔十进制字节），就是 RCS 订阅到的值。点进去就能改：改完按你填的字节生效（状态/指令号/有货/方向跟着变）并推给 RCS"/>
+                                                </Style>
+                                            </DataGridTemplateColumn.HeaderStyle>
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Style="{StaticResource CellMonoBox}"
+                                                             Text="{Binding ReadAreaText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="DB1 最近（WCS→PLC）" Width="Auto" MinWidth="176">
+                                            <DataGridTemplateColumn.HeaderStyle>
+                                                <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+                                                    <Setter Property="ToolTip" Value="RCS 最近写进写区的那一帧原文。点进去就能改：填一帧就等于手工下一条命令（按报文执行，和 RCS 写进来一样）"/>
+                                                </Style>
+                                            </DataGridTemplateColumn.HeaderStyle>
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Style="{StaticResource CellMonoBox}"
+                                                             Text="{Binding WriteAreaText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="有货" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Style="{StaticResource CellCheck}" IsChecked="{Binding HasCargo, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              ToolTip="勾上=这一节光电有货（反馈 bit0），值立即推给 RCS；等价的还有上面的「切换有货」按钮"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="目标设备" Width="Auto" Binding="{Binding DestinationText}" ElementStyle="{StaticResource CellReadNum}"/>
+                                        <DataGridTemplateColumn Header="下一节" Width="Auto" MinWidth="80">
+                                            <DataGridTemplateColumn.HeaderStyle>
+                                                <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+                                                    <Setter Property="ToolTip" Value="货从这一节往哪一节走。点进去直接改设备号；填 — 或 0 表示没有下一节（货离开模拟范围）。导入设备表时如果带了第 5 列，就按那一列填"/>
+                                                </Style>
+                                            </DataGridTemplateColumn.HeaderStyle>
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Style="{StaticResource CellMonoBox}"
+                                                             Text="{Binding NextText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="方向" Width="Auto" Binding="{Binding ActionText}" ElementStyle="{StaticResource CellRead}"/>
+                                        <DataGridTextColumn Header="连接名" Width="Auto" Binding="{Binding Server}" ElementStyle="{StaticResource CellRead}"/>
+                                        <DataGridTextColumn Header="写次数" Width="Auto" Binding="{Binding Writes}" ElementStyle="{StaticResource CellReadNum}"/>
+                                        <DataGridTextColumn Header="读标签（PLC→WCS）" Width="Auto" Binding="{Binding ReadTag}" ElementStyle="{StaticResource CellMono}"/>
+                                        <DataGridTextColumn Header="写标签（WCS→PLC）" Width="Auto" Binding="{Binding WriteTag}" ElementStyle="{StaticResource CellMono}"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <StackPanel x:Name="ConveyorEmptyHint" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,36,0,0" IsHitTestVisible="False">
+                                    <ui:SymbolIcon Symbol="ArrowsBidirectional24" FontSize="36" HorizontalAlignment="Center" Foreground="{DynamicResource TextFillColorDisabledBrush}"/>
+                                    <TextBlock Text="输送线未启动，点右上角「启动」或先从剪贴板导入设备表" Margin="0,8,0,0" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                </StackPanel>
+                            </Grid>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+
+                <!-- 页面与日志之间可拖动 -->
+                <GridSplitter Grid.Row="1" Height="10" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                              Background="Transparent" ResizeBehavior="PreviousAndNext" Cursor="SizeNS" ToolTip="拖动调整日志区高度"/>
+
+                <!-- ================= 日志 ================= -->
+                <Border Grid.Row="2" Style="{StaticResource Card}" Padding="0">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="14,6,8,2">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <ui:ToggleSwitch x:Name="AutoScrollToggle" Content="自动滚动" IsChecked="True" Margin="0,0,12,0" FontSize="12"/>
+                                <ui:Button Appearance="Transparent" BorderThickness="0" Padding="6" Click="OnCopyLogClick" ToolTip="复制全部日志"
+                                           Icon="{ui:SymbolIcon Copy24}"/>
+                                <ui:Button Appearance="Transparent" BorderThickness="0" Padding="6" Click="OnClearLogClick" ToolTip="清空日志"
+                                           Icon="{ui:SymbolIcon Delete24}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <ui:SymbolIcon Symbol="TextBulletListSquare24" FontSize="16" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                <TextBlock Text="日志" Margin="6,0,0,0" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            </StackPanel>
+                        </DockPanel>
+                        <TextBox x:Name="LogBox" Style="{x:Null}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                                 AutomationProperties.Name="日志内容"
+                                 Background="Transparent" BorderThickness="0"
+                                 Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                 SelectionBrush="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                 FontFamily="Consolas" FontSize="12.5" Padding="12,0,12,8"
+                                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</ui:FluentWindow>

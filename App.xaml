@@ -1,0 +1,230 @@
+<Application x:Class="Kean.Tools.RgvSimulatorGui.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ui:ThemesDictionary Theme="Light"/>
+                <ui:ControlsDictionary/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- 卡片容器：所有分组都用它，颜色全部取 WPF-UI 主题画刷，亮/暗主题自动切换 -->
+            <Style x:Key="Card" TargetType="Border">
+                <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="Padding" Value="16,12"/>
+            </Style>
+
+            <!-- 页面标题 / 副标题 -->
+            <Style x:Key="PageTitle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="24"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+            </Style>
+            <Style x:Key="PageSubtitle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="Margin" Value="0,2,0,0"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+            </Style>
+
+            <!-- 卡片内的分组小标题 -->
+            <Style x:Key="Caption" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+                <Setter Property="Margin" Value="0,0,0,8"/>
+            </Style>
+
+            <!-- 输入框上方的字段名 -->
+            <Style x:Key="FieldCaption" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="Margin" Value="2,0,0,4"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+            </Style>
+
+            <!-- 一个"字段名 + 输入框"的小块 -->
+            <Style x:Key="Field" TargetType="StackPanel">
+                <Setter Property="Margin" Value="0,0,12,4"/>
+            </Style>
+
+            <!-- 操作区的小组标题（竖排在按钮左侧） -->
+            <Style x:Key="GroupLabel" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="Width" Value="64"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}"/>
+            </Style>
+
+            <!-- 操作按钮的统一间距 -->
+            <Style x:Key="OpButton" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                <Setter Property="Margin" Value="0,0,6,6"/>
+                <Setter Property="MinWidth" Value="72"/>
+            </Style>
+
+            <!-- 左侧导航：单选按钮做成 Fluent 风格的导航项（选中时左侧亮条） -->
+            <Style x:Key="NavItem" TargetType="RadioButton">
+                <Setter Property="GroupName" Value="Nav"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Border x:Name="Bd" Background="Transparent" CornerRadius="6" Padding="12,8" Margin="0,2">
+                                <Grid>
+                                    <Border x:Name="Pill" Width="3" Height="18" CornerRadius="1.5" HorizontalAlignment="Left"
+                                            Margin="-12,0,0,0" Visibility="Collapsed"
+                                            Background="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
+                                    <ContentPresenter VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}"/>
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}"/>
+                                    <Setter TargetName="Pill" Property="Visibility" Value="Visible"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- 配色方案色板：圆点 = 方案主色（Background），选中时外圈描边 -->
+            <Style x:Key="Swatch" TargetType="RadioButton">
+                <Setter Property="GroupName" Value="Scheme"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Margin" Value="0,0,6,6"/>
+                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Grid Width="26" Height="26" Background="Transparent">
+                                <Ellipse x:Name="Ring" Stroke="{DynamicResource TextFillColorPrimaryBrush}" StrokeThickness="2" Visibility="Collapsed"/>
+                                <Ellipse Margin="4" Fill="{TemplateBinding Background}"/>
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Ring" Property="Visibility" Value="Visible"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Opacity" Value="0.85"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ===== 表格 ===== -->
+
+            <!-- 表格单元：淡黄底 = 可直接改（主题里的 Caution 背景，亮/暗都清楚） -->
+            <Style x:Key="CellEdit" TargetType="TextBlock">
+                <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="Padding" Value="8,3"/>
+                <Setter Property="Margin" Value="2,0"/>
+            </Style>
+            <Style x:Key="CellEditNum" TargetType="TextBlock" BasedOn="{StaticResource CellEdit}">
+                <Setter Property="TextAlignment" Value="Right"/>
+            </Style>
+            <!-- 告警值：非 0 时红字加粗 -->
+            <Style x:Key="CellWarnNum" TargetType="TextBlock" BasedOn="{StaticResource CellEditNum}">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding HasFault}" Value="True">
+                        <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}"/>
+                        <Setter Property="FontWeight" Value="Bold"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="CellRead" TargetType="TextBlock">
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="Padding" Value="8,0"/>
+            </Style>
+            <Style x:Key="CellReadNum" TargetType="TextBlock" BasedOn="{StaticResource CellRead}">
+                <Setter Property="TextAlignment" Value="Right"/>
+            </Style>
+            <Style x:Key="CellMono" TargetType="TextBlock" BasedOn="{StaticResource CellRead}">
+                <Setter Property="FontFamily" Value="Consolas"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+            </Style>
+            <Style x:Key="CellEditBox" TargetType="TextBox">
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding" Value="6,0"/>
+                <Setter Property="MinHeight" Value="0"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="Background" Value="{DynamicResource ControlFillColorInputActiveBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+                <Setter Property="CaretBrush" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+            </Style>
+            <Style x:Key="CellEditBoxNum" TargetType="TextBox" BasedOn="{StaticResource CellEditBox}">
+                <Setter Property="TextAlignment" Value="Right"/>
+            </Style>
+            <Style x:Key="CellCheck" TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+                <Setter Property="HorizontalAlignment" Value="Center"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="MinWidth" Value="0"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="Margin" Value="0"/>
+            </Style>
+
+            <!-- 表格里的字节输入框：平时看着跟普通单元格一样，点进去就能改 -->
+            <Style x:Key="CellMonoBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                <Setter Property="FontFamily" Value="Consolas"/>
+                <Setter Property="FontSize" Value="12.5"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding" Value="8,2"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalAlignment" Value="Stretch"/>
+                <Setter Property="AcceptsReturn" Value="False"/>
+                <Style.Triggers>
+                    <Trigger Property="IsKeyboardFocused" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource ControlFillColorInputActiveBrush}"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- 三张设备表共用的外观 -->
+            <Style x:Key="DeviceGrid" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
+                <Setter Property="AutoGenerateColumns" Value="False"/>
+                <Setter Property="CanUserAddRows" Value="False"/>
+                <Setter Property="CanUserDeleteRows" Value="False"/>
+                <Setter Property="CanUserResizeRows" Value="False"/>
+                <Setter Property="CanUserSortColumns" Value="False"/>
+                <Setter Property="CanUserReorderColumns" Value="False"/>
+                <Setter Property="HeadersVisibility" Value="Column"/>
+                <Setter Property="SelectionMode" Value="Single"/>
+                <Setter Property="SelectionUnit" Value="FullRow"/>
+                <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+                <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource DividerStrokeColorDefaultBrush}"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="RowHeight" Value="36"/>
+                <Setter Property="ColumnHeaderHeight" Value="34"/>
+                <Setter Property="FontSize" Value="12.5"/>
+                <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
+                <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+                <Setter Property="EnableRowVirtualization" Value="False"/>
+            </Style>
+
+            <!-- 状态小胶囊（连接数、输送线状态等） -->
+            <Style x:Key="Pill" TargetType="Border">
+                <Setter Property="CornerRadius" Value="10"/>
+                <Setter Property="Padding" Value="8,1"/>
+                <Setter Property="HorizontalAlignment" Value="Left"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="Margin" Value="6,0"/>
+                <Setter Property="Background" Value="{DynamicResource SystemFillColorSolidNeutralBackgroundBrush}"/>
+            </Style>
+
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
